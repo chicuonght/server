@@ -1,0 +1,22 @@
+RewriteEngine on
+
+# If a directory or a file exists, use the request directly
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+# Otherwise forward the request to index.php
+RewriteRule . index.php
+
+
+<FilesMatch "\.(html|htm|js|css|php)">
+  FileETag None
+  <IfModule mod_headers.c>
+    Header unset ETag
+
+    Header set Pragma "no-cache"
+    Header set Expires "Wed, 12 Jan 1980 05:00:00 GMT"
+    Header set Cache-Control "must-revalidate, no-cache, no-store, no-transform, public, private, proxy-revalidate, max-age=0, s-maxage=0"
+    Header set Pragma "no-cache"
+    Header set Expires 0
+
+  </IfModule>
+</FilesMatch>
