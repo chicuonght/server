@@ -7,12 +7,16 @@
  */
 
 namespace auth\rbac;
+use auth\models\User;
 use Prophecy\Util\StringUtil;
 use yii\base\InvalidParamException;
 use yii\db\Query;
 use yii\helpers\Inflector;
 use yii\helpers\StringHelper;
 use yii\helpers\VarDumper;
+
+use yii\web\NotAcceptableHttpException;
+use yii\web\NotFoundHttpException;
 
 
 /**
@@ -22,6 +26,8 @@ use yii\helpers\VarDumper;
 class DbManager extends \yii\rbac\DbManager
 {
 
+    CONST SUPPER_ADMIN_ID = 1;
+    const ROLE_ADMIN = 'admin';
 
     public $userTable = '{{%user}}';
 
@@ -59,7 +65,84 @@ class DbManager extends \yii\rbac\DbManager
         $name= Inflector::variablize($name);
         $role = new Role();
         $role->name = $name;
+
         return $role;
+    }
+
+    protected function getCreatedBy(){
+        $userId = self::SUPPER_ADMIN_ID;
+
+        if(User::$_instance){
+            //Admin user ID = 1
+            $userId = User::$_instance->getId();
+        }
+        return $userId;
+    }
+
+    /**
+     * @param Item
+     * @return bool
+     */
+    protected function addItem($item)
+    {
+        $time = time();
+        $userId = $this->getCreatedBy();
+
+        if ($item->createdAt === null) {
+            $item->createdAt = $time;
+        }
+        if ($item->updatedAt === null) {
+            $item->updatedAt = $time;
+        }
+
+        if ($item->createdBy === null) {
+            $item->createdBy = $userId;
+        }
+
+        if ($item->updatedBy === null) {
+            $item->updatedBy = $userId;
+        }
+
+        $this->db->createCommand()
+            ->insert($this->itemTable, [
+                'name' => $item->name,
+                'type' => $item->type,
+                'description' => $item->description,
+                'rule_name' => $item->ruleName,
+                'data' => $item->data === null ? null : serialize($item->data),
+                'created_at' => $item->createdAt,
+                'updated_at' => $item->updatedAt,
+                'created_by' => $item->createdBy,
+                'updated_by' => $item->updatedBy,
+            ])->execute();
+
+        $this->invalidateCache();
+
+        return true;
+    }
+
+
+    /**
+     * @inheritdoc
+     */
+    public function assign($role, $userId)
+    {
+       $assignment = new Assignment([
+            'userId' => $userId,
+            'roleName' => $role->name,
+            'createdAt' => time(),
+            'createdBy' => $userId
+        ]);
+
+        $this->db->createCommand()
+            ->insert($this->assignmentTable, [
+                'user_id' => $assignment->userId,
+                'item_name' => $assignment->roleName,
+                'created_at' => $assignment->createdAt,
+                'created_by' => $this->getCreatedBy(),
+            ])->execute();
+
+        return $assignment;
     }
 
     /**
@@ -109,22 +192,39 @@ class DbManager extends \yii\rbac\DbManager
 
 
     /**
+     * @inheritdoc
+     */
+    public function getRoles()
+    {
+        $roles = $this->getItems(Item::TYPE_ROLE);
+        foreach ($roles as $role){
+            $role->permissions = $this->getPermissionsByRole($role->name);
+            $assignments  = $this->getAssignmentsByRole($role->name);
+            $role->userIds = array_column($assignments, 'userId');
+        }
+        return $roles;
+    }
+
+
+    /**
      * Parse Database row to Item Object
      * @param $row
      * @return \yii\rbac\Item Permission | Role | Feature
      */
     protected function populateItem($row) : \yii\rbac\Item
     {
-        $class = Role::className();
-        $type  = 'Role';
+        $class = null;
+        $userId = 1;
         switch ($row['type']){
             case Item::TYPE_PERMISSION;
                 $class = Permission::className();
-                $type = 'Permission';
                 break;
             case Item::TYPE_FEATURE;
                 $class = Feature::className();
-                $type = 'Feature';
+
+                break;
+            case Item::TYPE_ROLE;
+                $class = Role::className();
                 break;
         }
 
@@ -132,15 +232,24 @@ class DbManager extends \yii\rbac\DbManager
             $data = null;
         }
 
+        if(! isset($row['created_by'])){
+            $row['created_by'] = $userId;
+        }
+
+        if(! isset($row['updated_by'])){
+            $row['updated_by'] = $userId;
+        }
 
         return new $class([
-            'name' => Inflector::titleize( $row['name']),
-            'type' => $type,
+            'name' =>  $row['name'],
+            'type' => $row['type'],
             'description' => $row['description'],
             'ruleName' => $row['rule_name'],
             'data' => $data,
             'createdAt' => date('Y-m-d', $row['created_at']),
             'updatedAt' => date('Y-m-d',$row['updated_at']),
+            'createdBy' => $row['created_by'],
+            'updatedBy' => $row['updated_by'],
         ]);
     }
 
@@ -177,6 +286,8 @@ class DbManager extends \yii\rbac\DbManager
             'data' => $data,
             'createdAt' => date('Y-m-d', $row['created_at']),
             'updatedAt' => date('Y-m-d',$row['updated_at']),
+            'createdBy' => $row['created_by'],
+            'updatedBy' => $row['updated_by'],
         ]);
     }
 
@@ -243,7 +354,9 @@ class DbManager extends \yii\rbac\DbManager
         if(is_null($roleName)){
             return $features;
         }
-        $permissionsByRole = $this->getDirectPermissionsByRole($roleName);
+
+        $permissionsByRole = $this->getPermissionsByRole($roleName);
+        //$permissionsByRole = $this->getDirectPermissionsByRole($roleName);
         $permissionsByRoleKeys = array_keys($permissionsByRole);
 
         foreach ($features as $f => $feature){
@@ -258,6 +371,41 @@ class DbManager extends \yii\rbac\DbManager
     }
 
     /**
+     * Check Role existed
+     * @param $name
+     * @return null|\yii\rbac\Item
+     */
+    public function checkRole($name){
+        $name= Inflector::variablize($name);
+        return $this->getItem($name);
+    }
+
+
+    /**
+     * @inheritdoc
+     */
+    protected function getItem($name)
+    {
+        if (empty($name)) {
+            return null;
+        }
+
+        if (!empty($this->items[$name])) {
+            return $this->items[$name];
+        }
+
+        $row = (new Query)->from($this->itemTable)
+            ->where(['name' => $name])
+            ->one($this->db);
+
+        if ($row === false) {
+            return null;
+        }
+
+        return $this->populateItem($row);
+    }
+
+    /**
      * @inheritdoc
      */
     public function getRole($name)
@@ -265,6 +413,58 @@ class DbManager extends \yii\rbac\DbManager
         $item = $this->getItem($name);
 
         return $item instanceof Role  ? $item : null;
+    }
+
+    /**
+     * Delete a role
+     * @param Role
+     * @return bool
+     * @throws NotAcceptableHttpException
+     * @throws NotFoundHttpException
+     */
+    public function deleteRole(Role $role){
+
+
+        if($c = count($this->getAssignmentsByRole($role->name))){
+            $msg = \Yii::t('app', sprintf('Role %s has been being assinged to %d {n,plural,=1{user} other{users}}.', $role->name, $c), ['n' => $c]);
+            throw new NotAcceptableHttpException($msg);
+        }
+
+       return $this->remove($role);
+    }
+
+
+    public function getAssignmentsByRole(string $roleName)
+    {
+        if (empty($roleName)) {
+            return [];
+        }
+
+        $query = (new Query)
+            ->from($this->assignmentTable)
+            ->where(['item_name' => $roleName]);
+
+        $assignments = [];
+        foreach ($query->all($this->db) as $row) {
+            $assignments[$row['item_name']] = new Assignment([
+                'userId' => $row['user_id'],
+                'roleName' => $row['item_name'],
+                'createdAt' => $row['created_at'],
+            ]);
+        }
+
+        return $assignments;
+    }
+
+
+    /**
+     * @inheritdoc
+     */
+    public function getPermission($name)
+    {
+        $item = $this->getItem($name);
+        return $item instanceof Permission ? $item : null;
+
     }
 
     /**
@@ -276,7 +476,7 @@ class DbManager extends \yii\rbac\DbManager
     {
         $role = $this->getRole($roleName);
         if (is_null($role)) {
-            throw new InvalidParamException("Role \"$roleName\" not found.");
+            throw new NotFoundHttpException("Role \"$roleName\" not found.");
         }
 
         $items = (new Query)->select('p.*')

@@ -42,4 +42,19 @@
             \Yii::$app->response->setStatusCode(400);
         }
 
+        public function setStatusCreated()
+        {
+            \Yii::$app->response->setStatusCode(201);
+        }
+
+        public function setStatusUpdated()
+        {
+            \Yii::$app->response->setStatusCode(201);
+        }
+
+        public function setStatusDeleted()
+        {
+            \Yii::$app->response->setStatusCode(204);
+        }
+
     }

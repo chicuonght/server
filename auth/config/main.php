@@ -13,6 +13,13 @@ return [
     'bootstrap' => ['log'],
     'modules' => [],
     'components' => [
+        'authManager' => [
+            'class' => 'auth\rbac\DbManager',
+            'defaultRoles' => ['user']
+        ],
+        'cache' => [
+            'class' => 'yii\caching\FileCache',
+        ],
         'urlManager' => [
             'enablePrettyUrl' => true,
             'enableStrictParsing' => true,
@@ -25,6 +32,13 @@ return [
             'rules' => [
                 'POST authorize' => 'permission/authorize',
                 'GET <controller:(permission|role)>s' => '<controller>/index',
+                'GET <controller:(permission|role)>s/<userId:\d+>' => '<controller>/by-user',
+                'GET <controller:(permission)>s/<roleName:\w+>' => '<controller>/by-role',
+                'DELETE <controller:(role)>s/<roleName:\w+>' => '<controller>/delete',
+                'POST <controller:(role)>s' => '<controller>/create',
+                'PUT <controller:(role)>s' => '<controller>/update',
+                'POST <controller:(role)>s/<roleName:\w+>/assign/<userId:\d+>' => '<controller>/assign',
+                'DELETE <controller:(role)>s/<roleName:\w+>/assign/<userId:\d+>' => '<controller>/unassign',
                 //['class' => 'yii\rest\UrlRule', 'controller' => 'role'],
             ],
         ],
@@ -47,6 +61,7 @@ return [
         'user' => [
             'identityClass' => 'auth\models\User',
             'enableAutoLogin' => false,
+            'enableSession' => false
         ],
         'session' => [
             // this is the name of the session cookie used for login on the backend
@@ -64,14 +79,19 @@ return [
         'errorHandler' => [
             'errorAction' => 'site/error',
         ],
-        /*
-        'urlManager' => [
-            'enablePrettyUrl' => true,
-            'showScriptName' => false,
-            'rules' => [
+        'i18n' => [
+            'translations' => [
+                'app*' => [
+                    'class' => 'yii\i18n\PhpMessageSource',
+                    'basePath' => '@auth/messages',
+                    'sourceLanguage' => 'en-US',
+                    'fileMap' => [
+                        'app' => 'app.php',
+                        'app/error' => 'error.php',
+                    ],
+                ],
             ],
         ],
-        */
     ],
     'params' => $params,
 ];

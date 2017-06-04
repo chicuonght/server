@@ -11,7 +11,6 @@
     use auth\models\Authorize;
     use auth\models\Permission;
     use JsonApiPhp\JsonApi\Document\Document;
-    use JsonApiPhp\JsonApi\Document\Resource\ResourceObject;
     use yii;
 
     class PermissionController extends BearerAuthController
@@ -28,12 +27,7 @@
             $authorize = new Authorize();
             $authorize->load(\Yii::$app->request->post());
             if (!$authorize->validate()) {
-                $error = new yii\base\DynamicModel([
-                    'message' => 'Invalid Params',
-                    'data'    => $authorize->getErrors(),
-                ]);
                 $this->setBadRequest();
-
                 return $authorize->getErrors();
             }
 
@@ -42,7 +36,7 @@
         }
 
         /**
-         * Get all Features and Permissions
+         * Get all Features and Permissions for create/update Role
          * @return Document
          */
         public function actionIndex()
@@ -52,7 +46,22 @@
             $permission = new Permission();
             $roleName = Yii::$app->request->get('role');
 
-            return $permission->getPermissions($roleName);
+            return $permission->getFeaturesAndPermissions($roleName);
+        }
+
+
+        public function actionByUser(int $userId){
+            Authorize::checkPermission('read');
+            $permission = new Permission();
+
+            return $permission->getPermissionsByUser($userId);
+        }
+
+        public function actionByRole(string $roleName){
+            Authorize::checkPermission('viewRole');
+            $permission = new Permission();
+
+            return $permission->getPermissionsByRole($roleName);
         }
 
     }

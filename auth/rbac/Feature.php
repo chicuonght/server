@@ -7,10 +7,13 @@
  */
 
 namespace auth\rbac;
+use tuyakhov\jsonapi\ResourceTrait;
+use tuyakhov\jsonapi\ResourceInterface;
 
-
-class Feature extends Item
+class Feature extends Item implements ResourceInterface
 {
+    use ResourceTrait;
+
     public $type = self::TYPE_FEATURE;
 
     public $permissions = [];

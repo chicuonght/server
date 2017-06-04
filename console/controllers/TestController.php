@@ -24,7 +24,7 @@ class TestController extends Controller
 
     public function actionRun()
     {
-        $results = \Yii::$app->authManager->getPermissionsByUser(1);
+        $results = \Yii::$app->authManager->getRoles();
         VarDumper::dump($results);
     }
 
@@ -34,15 +34,17 @@ class TestController extends Controller
 
         $client = new Client();
         $host = 'rbac.dev';
-        $url = sprintf('http://%s/permissions', $host);
+        $url = sprintf('http://%s/role', $host);
 
         $params = [
             'data' => [
-                "type" => "Authorize",
+                "type" => "CreateRole",
                 "attributes" => [
-                    'permission' => 'manageRole',
-                    'data' => [
-                        'created_by' => 1
+                    'roleName' => 'user',
+                    'description' => 'a new user role',
+                    'permissions' => [
+                        'viewPost',
+                        'updatePost'
                     ],
                 ],
             ],
@@ -50,11 +52,11 @@ class TestController extends Controller
 
 
         $headers = [
-            'Authorization' => 'Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiIiLCJpYXQiOjE0OTYyMjYwMTksImV4cCI6MTQ5NjMxMjQxOSwibmFtZSI6IlRoYW5oIFBoYW0iLCJ1c2VybmFtZSI6ImNpdHRwaCIsImp0aSI6MX0.WIBDt9L40oDx6yXkcrsZrp0c8O8zBaDVkwNeQtN_N5E',
+            'Authorization' => 'Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiIiLCJpYXQiOjE0OTY0NzA2ODcsImV4cCI6MTQ5NjU1NzA4NywibmFtZSI6IkFkbWluIFdNUyIsInVzZXJuYW1lIjoiY2l0dHBoIiwianRpIjoxfQ.VtW8D9FVqDHv0iGY_1ruDmiZqVbSKheXZJ651ntD9Mk',
             'Content-Type' => 'application/vnd.api+json'
         ];
         $request = $client->createRequest()
-            ->setMethod('GET')
+            ->setMethod('POST')
             ->setHeaders($headers)
             ->setUrl($url)
             ->setContent(json_encode($params));

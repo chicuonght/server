@@ -6,9 +6,7 @@ use tuyakhov\jsonapi\ResourceInterface;
 use tuyakhov\jsonapi\ResourceTrait;
 use Yii;
 
-use yii\base\Exception;
 use yii\db\ActiveRecord;
-use yii\helpers\VarDumper;
 use yii\httpclient\Client;
 use yii\web\HttpException;
 use yii\web\IdentityInterface;

@@ -29,16 +29,19 @@ class OwnerRule extends  Rule
      */
     public function execute($userId, $item, $params)
     {
+
+
+
         if(! isset($params['created_by'])){
             throw new InvalidParamException("Param 'data' missing created_by value!");
         }
 
         $result = $params['created_by'] == $userId;
-        if(! $result){
-            $parts = explode(' ', $item->name);
-            $msg = sprintf("You have permission '%s' but you are not an owner of this '%s'", $item->name, end($parts));
-            throw new \yii\web\UnauthorizedHttpException($msg);
-        }
+
+//        if(! $result){
+//            $msg = sprintf("Sorry! You are not an owner.");
+//            throw new \yii\web\UnauthorizedHttpException($msg);
+//        }
         return $result;
     }
 }

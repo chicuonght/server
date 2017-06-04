@@ -18,6 +18,8 @@ class Role extends \yii\rbac\Role implements ResourceInterface
 
     public $permissions = [];
 
+    public $userIds = [];
+
     public function getId()
     {
 

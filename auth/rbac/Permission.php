@@ -7,9 +7,12 @@
  */
 
 namespace auth\rbac;
+use tuyakhov\jsonapi\ResourceTrait;
+use tuyakhov\jsonapi\ResourceInterface;
 
-
-class Permission extends  \yii\rbac\Permission 
+class Permission extends  \yii\rbac\Permission  implements ResourceInterface
 {
+    use ResourceTrait;
+
     use CheckedTrait;
 }

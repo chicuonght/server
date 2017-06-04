@@ -1,4 +1,5 @@
 <?php
 return [
-    'adminEmail' => 'admin@example.com',
+    'jwt-key' => 'your key',
+    'authenticate_jwt_url' => 'your url'
 ];
